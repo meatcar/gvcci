@@ -1,21 +1,23 @@
 import numpy as np
 
-from converters import hsllist2rl, hsl2rl
+from . import converters
 
 
 def contrast_between(a, b):
-    rl_a = hsl2rl(a)
-    rl_b = hsl2rl(b)
+    rl_a = converters.hsl2rl(a)
+    rl_b = converters.hsl2rl(b)
     rl_max = max(rl_a, rl_b)
     rl_min = min(rl_a, rl_b)
     return (rl_max + 0.05) / (rl_min + 0.05)
 
+
 def contrast_between_all(a, b):
-    rl_a = hsllist2rl(a)
-    rl_b = hsl2rl(b)
+    rl_a = converters.hsllist2rl(a)
+    rl_b = converters.hsl2rl(b)
     rl_max = np.maximum(rl_a, rl_b)
     rl_min = np.minimum(rl_a, rl_b)
     return (rl_max + 0.05) / (rl_min + 0.05)
+
 
 def distance_measures_between_colors(a, b):
     # HSL looks like a bicone
@@ -30,7 +32,7 @@ def distance_measures_between_colors(a, b):
     # 0            1/0            1
     # |---A-----B---|
     #               |---A-----B---|
-    # 
+    #
     #           |---|---|
     #           1-B + A
     #
@@ -51,6 +53,7 @@ def distance_between_colors(a, b):
     dh, ds, dl = distance_measures_between_colors(a, b)
     return (dh ** 2) + (ds ** 2) + (dl ** 2)
 
+
 def adjust_contrast(colors, bg):
     min_contrast = 0.35
     fixed_colors = np.array([]).reshape(0, 3)
@@ -65,23 +68,27 @@ def adjust_contrast(colors, bg):
         fixed_colors = np.vstack((fixed_colors, fixed_color))
     return fixed_colors
 
+
 def mode_rows(a):
     a = np.ascontiguousarray(a)
     void_dt = np.dtype((np.void, a.dtype.itemsize * np.prod(a.shape[1:])))
-    _, ids, count = np.unique(a.view(void_dt).ravel(), return_index=1,return_counts=1)
+    _, ids, count = np.unique(a.view(void_dt).ravel(),
+                              return_index=1, return_counts=1)
     largest_count_id = ids[count.argmax()]
     return a[largest_count_id], np.max(count)
+
 
 def contrast_between_boundaries(colors, dark_boundary, light_boundary, min_dark_contrast, min_light_contrast):
     dark_contrast = contrast_between_all(colors, dark_boundary)
     light_contrast = contrast_between_all(colors, light_boundary)
-    
+
     if (min_dark_contrast > min_light_contrast):
         light_contrast += min_dark_contrast - min_light_contrast
     elif (min_light_contrast > min_dark_contrast):
         dark_contrast += min_light_contrast - min_dark_contrast
 
     return np.minimum(dark_contrast, light_contrast)
+
 
 def clip_between_boundaries(hsl_colors, dark_boundary, light_boundary, min_dark_contrast, min_light_contrast):
     hsl_colors = hsl_colors.reshape(-1, 3)
@@ -96,7 +103,7 @@ def clip_between_boundaries(hsl_colors, dark_boundary, light_boundary, min_dark_
             hsl_colors[i][2] += increment
             if hsl_colors[i][2] > 1:
                 hsl_colors[i][2] = 1
-                break;
+                break
             dark_contrast = contrast_between_all(hsl_colors, dark_boundary)
 
         # recompute the light contrast once the dark contrast is adjusted
@@ -106,17 +113,17 @@ def clip_between_boundaries(hsl_colors, dark_boundary, light_boundary, min_dark_
             hsl_colors[i][2] -= increment
             if hsl_colors[i][2] < 0:
                 hsl_colors[i][2] = 0
-                break;
+                break
             light_contrast = contrast_between_all(hsl_colors, light_boundary)
 
     return hsl_colors
 
+
 def find_nearest_pair(colors):
-    closest_pair = [colors[0], colors[1]]
     closest_dist = distance_between_colors(colors[0], colors[1])
     index_1 = 0
-    index_2 = 1 # this is so stupid...
-    
+    index_2 = 1  # this is so stupid...
+
     for i in range(len(colors)):
         a = colors[i]
         rest = colors[:]
@@ -138,6 +145,7 @@ def find_nearest_pair(colors):
             index_2 = index_b
 
     return (index_1, index_2)
+
 
 def pick_n_best_colors_with_reference(n_colors, hsl_colors, ansi_reference, dark_boundary, light_boundary, dark_min_contrast, light_min_contrast):
     max_contrast_requirement = max(dark_min_contrast, light_min_contrast)
@@ -162,9 +170,10 @@ def pick_n_best_colors_with_reference(n_colors, hsl_colors, ansi_reference, dark
 
     if len(within_bounds) <= n_colors:
         # TODO make sure the unfiltered hsl_colors don't yield poor results - if they do, revert
-        within_bounds = hsl_colors # sort_by_contrast(hsl_colors)[:n_colors]
+        within_bounds = hsl_colors  # sort_by_contrast(hsl_colors)[:n_colors]
 
     return sort_colors_by_closest_counterpart(within_bounds, ansi_reference)
+
 
 def pick_n_best_colors(n_colors, hsl_colors, dark_boundary, light_boundary, dark_min_contrast, light_min_contrast):
     max_contrast_requirement = max(dark_min_contrast, light_min_contrast)
@@ -192,7 +201,8 @@ def pick_n_best_colors(n_colors, hsl_colors, dark_boundary, light_boundary, dark
 
     while len(within_bounds) > n_colors:
         pair = find_nearest_pair(within_bounds)
-        scored = sort_by_contrast(np.array([within_bounds[pair[0]], within_bounds[pair[1]]]))
+        scored = sort_by_contrast(
+            np.array([within_bounds[pair[0]], within_bounds[pair[1]]]))
         a = scored[0]
         b = within_bounds[pair[0]]
 
@@ -203,10 +213,11 @@ def pick_n_best_colors(n_colors, hsl_colors, dark_boundary, light_boundary, dark
 
     return within_bounds
 
+
 def find_dominant_by_frequency(hsl_colors):
-    dark_frequency_boost = 2.0 # prefer dark backgrounds over light
-    dominant_dark = np.array([[0, 0, 0]]) # black
-    dominant_light = np.array([[0, 0, 1]]) # white
+    dark_frequency_boost = 2.0  # prefer dark backgrounds over light
+    dominant_dark = np.array([[0, 0, 0]])  # black
+    dominant_light = np.array([[0, 0, 1]])  # white
     dark_frequency = 0
     light_frequency = 0
 
@@ -215,23 +226,26 @@ def find_dominant_by_frequency(hsl_colors):
     light_l = 0.675
     light_l_upper = 0.95
 
-    light_colors = hsl_colors[hsl_colors[:,2] > light_l]
-    light_colors = light_colors[light_colors[:,2] < light_l_upper]
+    light_colors = hsl_colors[hsl_colors[:, 2] > light_l]
+    light_colors = light_colors[light_colors[:, 2] < light_l_upper]
 
-    dark_colors = hsl_colors[hsl_colors[:,2] < dark_l]
+    dark_colors = hsl_colors[hsl_colors[:, 2] < dark_l]
 
     if len(dark_colors) > 0:
-        dominant_dark, dark_frequency = mode_rows((dark_colors * precision).astype(int))
+        dominant_dark, dark_frequency = mode_rows(
+            (dark_colors * precision).astype(int))
         dominant_dark = dominant_dark.reshape(1, 3) / precision
 
     if len(light_colors) > 0:
-        dominant_light, light_frequency = mode_rows((light_colors * precision).astype(int))
+        dominant_light, light_frequency = mode_rows(
+            (light_colors * precision).astype(int))
         dominant_light = dominant_light.reshape(1, 3) / precision
 
     if (dark_frequency * dark_frequency_boost) >= light_frequency:
         return (dominant_dark, dominant_light)
     else:
         return (dominant_light, dominant_dark)
+
 
 def sort_colors_by_closest_counterpart(hsl_colors, hsl_counterparts):
     hsl_colors_copy = hsl_colors.copy()
@@ -240,14 +254,16 @@ def sort_colors_by_closest_counterpart(hsl_colors, hsl_counterparts):
         closest_index = 0
         closest_dist = 10000
         for i in range(len(hsl_colors_copy)):
-            dh, ds, dl = distance_measures_between_colors(hsl_colors_copy[i], counterpart)
-            dist = (dh ** 2) * (1 + ds) * (1.5 + dl) if (0.2 <= counterpart[2] <= 0.8) else dl
+            dh, ds, dl = distance_measures_between_colors(
+                hsl_colors_copy[i], counterpart)
+            dist = (dh ** 2) * (1 + ds) * \
+                (1.5 + dl) if (0.2 <= counterpart[2] <= 0.8) else dl
             if (dist < closest_dist):
                 closest_index = i
                 closest_dist = dist
 
         hsl_colors_sorted.append(hsl_colors_copy[closest_index])
-        hsl_colors_copy = np.vstack((hsl_colors_copy[:closest_index], hsl_colors_copy[closest_index + 1:]))
+        hsl_colors_copy = np.vstack(
+            (hsl_colors_copy[:closest_index], hsl_colors_copy[closest_index + 1:]))
 
     return np.array(hsl_colors_sorted)
-

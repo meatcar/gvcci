@@ -97,6 +97,8 @@ ansi-white-normal
 ansi-white-bright
 ```
 
+You can also use `wallpaper` to insert the wallpaper's filename.
+
 For each color, you have access to the following variants:
 
 ```
@@ -110,6 +112,7 @@ Here's the "hello world" of `gvcci` templates:
 ```
 Background: {{background-hex}}
 Foreground RGB: [{{foreground-red-255}}, {{foreground-green-255}}, {{foreground-blue-255}}]
+Wallpaper: {{wallpaper}}
 ```
 
 If you had a pure black background with pure red foreground, this would yield

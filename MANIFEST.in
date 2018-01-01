@@ -1,0 +1,4 @@
+include gvcci/resources/*
+include gvcci/templates/*
+include README.md
+include LICENSE
